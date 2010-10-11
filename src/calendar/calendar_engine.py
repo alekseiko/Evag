@@ -18,6 +18,7 @@ import time
 
 import config
 import event
+import calendar
 
 class CalendarEngine:
 
@@ -31,8 +32,7 @@ class CalendarEngine:
 		self.cal_client.ProgrammaticLogin()
 
 
-	def addEvent(self, event):
-
+	def addEvent(self, event, calendar = None):
 		c_event = gdata.calendar.CalendarEventEntry();
 		c_event.title = atom.Title(text=event.title);
 		c_event.content = atom.Content(text=event.content);
@@ -44,37 +44,51 @@ class CalendarEngine:
 			endTime = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time() + 3600));
 		c_event.when.append(gdata.calendar.When(start_time=startTime, end_time=endTime));
     
-		new_event = self.cal_client.InsertEvent(c_event, 'http://www.google.com/calendar/feeds/gb6tsdeoca4fg35aeijf9deq78%40group.calendar.google.com/private/full');
+		if calendar is None:
+		#Add to default calendar
+			uri = '/calendar/feeds/default/private/full';
+		else:
+			uri = calendar.uri
+
+		new_event = self.cal_client.InsertEvent(c_event, uri);
 		
-		event.setUrl(new_event.GetEditLink().href);
+		event.uri =  new_event.GetEditLink().href;
 
 		return event;
     
 
 	def deleteEvent(self, event):
-		self.cal_client.DeleteEvent(event.url);
+		self.cal_client.DeleteEvent(event.uri);
 
-	def addCalendar(self, title, description, timeZone, hidden, location, color = '#2952A3'):
+	def addCalendar(self,calendar):
 
-		calendar = gdata.calendar.CalendarListEntry();
-		calendar.title = atom.Title(text=title);
-		calendar.summary = atom.Summary(text=description);
-		calendar.where = gdata.calendar.Where(value_string=location);
-		calendar.color = gdata.calendar.Color(value=color);
-		calendar.timezone = gdata.calendar.Timezone(value=timeZone);
+		gcalendar = gdata.calendar.CalendarListEntry();
+		gcalendar.title = atom.Title(text=calendar.title);
+		gcalendar.summary = atom.Summary(text=calendar.desc);
+		gcalendar.where = gdata.calendar.Where(value_string=calendar.location);
+		gcalendar.color = gdata.calendar.Color(value=calendar.color);
+		gcalendar.timezone = gdata.calendar.Timezone(value=calendar.timeZone);
 
-		if hidden:
-		      calendar.hidden = gdata.calendar.Hidden(value='true');
-		else:
-		      calendar.hidden = gdata.calendar.Hidden(value='false');
+		gcalendar.hidden = gdata.calendar.Hidden(value=calendar.isHidden);
 
-		new_calendar = self.cal_client.InsertCalendar(new_calendar=calendar);
+		new_calendar = self.cal_client.InsertCalendar(new_calendar=gcalendar);
 
-		return new_calendar;
+		calendar.uri = new_calendar.GetEditLink().href;
+
+		print dir(new_calendar);
+
+		return calendar;
+
+	def deleteCalendar(self, calendar):
+		self.cal_client.Delete(calendar.uri);
 
 if __name__ == '__main__':
 	engine = CalendarEngine(config.email, config.password);
-	event = engine.addEvent(event.Event('TestEvent', 'Some test event located in saratov', 'Saratov', None, None));
+#	event = engine.addEvent(event.Event('TestEvent', 'Some test event located in saratov', 'Saratov', None, None));
 #	engine.deleteEvent(event);
 #	print "\n\n\n\n";
-#	print engine.addCalendar("TestCalendar", "It's calendar for test porpuses", "Europe/Moscow", False, "Saratov");
+	cal = engine.addCalendar(calendar.Calendar("TestCalendar", "It's calendar for test porpuses", "Saratov", "#A32929", "Europe/Moscow", 'false'));
+	print cal.uri
+	event = engine.addEvent(event.Event('TestEvent', 'Some test event located in saratov', 'Saratov', None, None), cal);
+
+#	engine.deleteCalendar(cal);
